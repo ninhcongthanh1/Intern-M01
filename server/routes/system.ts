@@ -41,9 +41,10 @@ systemRouter.post('/login', (req, res) => {
     }
 
     // Compare password (supports current password or default_password)
-    const validPassword = user.password || user.default_password || (
-      user.role === 'admin' ? 'Admin@2026' : user.role === 'hr' ? 'HR@2026' : user.role === 'mentor' ? 'Mentor@2026' : 'Intern@2026'
-    );
+    // Determine the valid password: use explicit password if set and not the generic placeholder, otherwise fallback to role default
+    const genericPlaceholder = 'IMS@2026';
+    const roleDefault = user.role === 'admin' ? 'Admin@2026' : user.role === 'hr' ? 'HR@2026' : user.role === 'mentor' ? 'Mentor@2026' : 'Intern@2026';
+    const validPassword = user.password && user.password !== genericPlaceholder ? user.password : (user.default_password || roleDefault);
 
     if (password !== validPassword) {
       return res.status(401).json({ success: false, error: 'Email hoặc mật khẩu không chính xác!' });

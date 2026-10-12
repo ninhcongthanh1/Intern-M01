@@ -37,6 +37,10 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ onOpenQr }) => {
     ? interns.find(i => i.id === currentUser.internProfileId || i.email === currentUser.email)
     : null;
 
+  // Filter data for interns so they only see their own records
+  const attendanceDisplay = currentUser.role === 'intern' ? attendance.filter(a => a.internId === (myProfile ? myProfile.id : (interns[0]?.id || 'intern-1'))) : attendance;
+  const leavesDisplay = currentUser.role === 'intern' ? leaves.filter(l => l.internId === (myProfile ? myProfile.id : (interns[0]?.id || 'intern-1'))) : leaves;
+
   const currentInternId = myProfile ? myProfile.id : (interns[0]?.id || 'intern-1');
   const todayRecord = attendance.find(a => a.internId === currentInternId && a.date === today);
 
@@ -178,7 +182,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ onOpenQr }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {attendance.map(att => {
+                {attendanceDisplay.map(att => {
                   const intern = interns.find(i => i.id === att.internId);
                   return (
                     <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
