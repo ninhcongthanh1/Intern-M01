@@ -1,6 +1,15 @@
 import { Router } from 'express';
 import { db, seedDatabase } from '../db';
-import { authorize } from '../middleware/auth';
+import nodemailer from 'nodemailer';
+
+// Nodemailer transporter using Gmail SMTP (credentials to be set in .env)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.SMTP_USER || '', // Gmail address
+    pass: process.env.SMTP_PASS || ''   // App password or OAuth token
+  }
+});
 
 export const systemRouter = Router();
 
@@ -210,18 +219,34 @@ systemRouter.get('/emails', (req, res) => {
   }
 });
 
-systemRouter.post('/emails', (req, res) => {
+systemRouter.post('/emails', async (req, res) => {
   try {
-    const data = req.body;
-    const newId = `em-${Date.now()}`;
-    const sentAt = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    try {
+      const data = req.body;
+      // Send email using nodemailer
+      const mailOptions = {
+        from: process.env.SMTP_USER || '',
+        to: data.toEmail,
+        subject: data.subject,
+        text: data.content,
+        // You can also use html if you prefer
+        // html: data.content
+      };
+      // Await sendMail (wrap in Promise)
+      await transporter.sendMail(mailOptions);
 
-    db.prepare(`
-      INSERT INTO system_emails (id, to_email, recipient_name, subject, content, sent_at, type)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(newId, data.toEmail, data.recipientName, data.subject, data.content, sentAt, data.type);
+      const newId = `em-${Date.now()}`;
+      const sentAt = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
-    res.status(201).json({ success: true, data: { ...data, id: newId, sentAt } });
+      db.prepare(`
+        INSERT INTO system_emails (id, to_email, recipient_name, subject, content, sent_at, type)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(newId, data.toEmail, data.recipientName, data.subject, data.content, sentAt, data.type);
+
+      res.status(201).json({ success: true, data: { ...data, id: newId, sentAt } });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
