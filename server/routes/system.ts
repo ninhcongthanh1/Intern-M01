@@ -21,6 +21,55 @@ systemRouter.get('/departments', (req, res) => {
   }
 });
 
+// Authentication: Real Account Login
+systemRouter.post('/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Vui lòng nhập đầy đủ Email và Mật khẩu!' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = db.prepare('SELECT * FROM users WHERE LOWER(email) = ?').get(cleanEmail) as any;
+
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Email hoặc mật khẩu không chính xác!' });
+    }
+
+    if (user.status === 'inactive' || user.status === 'locked') {
+      return res.status(403).json({ success: false, error: 'Tài khoản đã bị tạm khóa, vui lòng liên hệ Admin!' });
+    }
+
+    // Compare password (supports current password or default_password)
+    const validPassword = user.password || user.default_password || (
+      user.role === 'admin' ? 'Admin@2026' : user.role === 'hr' ? 'HR@2026' : user.role === 'mentor' ? 'Mentor@2026' : 'Intern@2026'
+    );
+
+    if (password !== validPassword) {
+      return res.status(401).json({ success: false, error: 'Email hoặc mật khẩu không chính xác!' });
+    }
+
+    // Success response with user profile
+    res.json({
+      success: true,
+      message: 'Đăng nhập thành công!',
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        phone: user.phone,
+        departmentId: user.department_id,
+        internProfileId: user.intern_profile_id,
+        status: user.status || 'active'
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Users (Protected by admin:users)
 systemRouter.get('/users', authorize('admin:users'), (req, res) => {
   try {

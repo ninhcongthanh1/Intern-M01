@@ -199,7 +199,11 @@ export const api = {
     body: JSON.stringify(data)
   }),
 
-  // System
+  // Authentication & System
+  login: (credentials: { email: string; password: string }) => request<{ success: boolean; message: string; data: any }>('/system/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials)
+  }),
   getDepartments: () => request<{ success: boolean; data: any[] }>('/system/departments'),
   getUsers: () => request<{ success: boolean; data: any[] }>('/system/users'),
   createUser: (data: any) => request<{ success: boolean; message: string; data: any }>('/system/users', {

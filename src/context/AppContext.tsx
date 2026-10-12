@@ -19,6 +19,9 @@ import { api } from '../services/api';
 interface AppContextType {
   currentUser: User;
   setCurrentUser: (user: User) => void;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   switchRole: (role: UserRole) => void;
   departments: Department[];
   programs: InternshipProgram[];
@@ -99,11 +102,23 @@ interface AppContextType {
 }
 
 const STORAGE_KEY = 'IMS_STORAGE_DATA_V1';
+const AUTH_USER_KEY = 'IMS_AUTH_USER_V1';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>(() => INITIAL_USERS[1]); // HR Manager default
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    try {
+      const saved = localStorage.getItem(AUTH_USER_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to parse saved user', e);
+    }
+    return INITIAL_USERS[0]; // Admin by default fallback
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem(AUTH_USER_KEY));
+  });
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
 
   const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
@@ -240,24 +255,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => [newNotif, ...prev]);
   };
 
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // 1. Try real backend login first
+      const res = await api.login({ email, password });
+      if (res?.success && res.data) {
+        const user: User = res.data;
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+        api.setAuth(user.role, user.name);
+        return { success: true };
+      }
+      return { success: false, error: res?.message || 'Email hoặc mật khẩu không chính xác' };
+    } catch (err: any) {
+      // Fallback local check if backend is offline
+      const cleanEmail = email.trim().toLowerCase();
+      const matched = users.find(u => u.email.toLowerCase() === cleanEmail);
+      if (matched) {
+        const expectedPwd = matched.password || matched.defaultPassword || (
+          matched.role === 'admin' ? 'Admin@2026' : matched.role === 'hr' ? 'HR@2026' : matched.role === 'mentor' ? 'Mentor@2026' : 'Intern@2026'
+        );
+        if (password === expectedPwd) {
+          setCurrentUser(matched);
+          setIsAuthenticated(true);
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(matched));
+          api.setAuth(matched.role, matched.name);
+          return { success: true };
+        }
+      }
+      return { success: false, error: err?.message || 'Email hoặc mật khẩu không chính xác!' };
+    }
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem(AUTH_USER_KEY);
+    api.setAuth('intern', 'Khách');
+  };
+
   const switchRole = (role: UserRole) => {
     const matchedUser = users.find(u => u.role === role);
     if (matchedUser) {
       setCurrentUser(matchedUser);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(matchedUser));
     } else {
-      setCurrentUser({
+      const tempUser: User = {
         id: `u-${role}-temp`,
         name: `Tài khoản ${role.toUpperCase()}`,
         email: `${role}@ims.corp`,
         role,
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-      });
+      };
+      setCurrentUser(tempUser);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(tempUser));
     }
     logAction('Chuyển đổi vai trò', 'UserRole', `Chuyển sang góc nhìn vai trò ${role.toUpperCase()}`);
   };
 
   // Dynamic RBAC Permission Logic
   const hasPermission = (permissionId: string): boolean => {
+    if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
     const currentPerms = rolePermissions[currentUser.role] || [];
     return currentPerms.includes(permissionId);
@@ -876,7 +934,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      currentUser, setCurrentUser, switchRole,
+      currentUser, setCurrentUser, 
+      isAuthenticated,
+      login, logout, switchRole,
       departments, programs, mentors, interns, tasks, 
       reports, evaluations, attendance, leaves, allowances, 
       tickets, notifications, emails, auditLogs, users,

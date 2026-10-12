@@ -20,6 +20,8 @@ import { PublicApplicationModal } from './components/modals/PublicApplicationMod
 import { EmailLogModal } from './components/modals/EmailLogModal';
 import { ShieldAlert } from 'lucide-react';
 
+import { LoginView } from './components/views/LoginView';
+
 const TAB_PERMISSIONS: Record<ActiveTab, string | null> = {
   dashboard: null,
   recruitment: 'recruitment:view',
@@ -37,11 +39,16 @@ const TAB_PERMISSIONS: Record<ActiveTab, string | null> = {
 };
 
 const MainLayout: React.FC = () => {
-  const { currentUser, hasPermission } = useApp();
+  const { currentUser, isAuthenticated, hasPermission } = useApp();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isPublicApplyModalOpen, setIsPublicApplyModalOpen] = useState(false);
   const [isEmailLogModalOpen, setIsEmailLogModalOpen] = useState(false);
+
+  // If user is not logged in, render the Login View
+  if (!isAuthenticated || !currentUser) {
+    return <LoginView />;
+  }
 
   // Check RBAC permission for current activeTab
   const requiredPermission = TAB_PERMISSIONS[activeTab];

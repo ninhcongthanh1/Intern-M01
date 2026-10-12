@@ -133,6 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const filteredNav = navItems.filter(item => {
+    if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
     if (!item.permission) return true;
     return hasPermission(item.permission);
