@@ -101,7 +101,27 @@ Sau khi khởi chạy thành công, truy cập các địa chỉ sau trên trìn
 
 ---
 
-## 📂 CẤU TRÚC DỰ ÁN
+# 📧 TÍNH NĂNG GỬI EMAIL THÔNG BÁO TUYỂN DỤNG
+
+Sau khi **HR duyệt CV** (trúng tuyển hoặc không trúng), hệ thống sẽ tự động gửi email tới thực tập sinh bằng **Nodemailer** (SMTP Gmail).  
+- **Biến môi trường cần cấu hình** (đặt trong `.env`):
+  ```dotenv
+  SMTP_USER=your_gmail_address@gmail.com
+  SMTP_PASS=your_app_password_or_oauth_token
+  ```
+- Nội dung email gồm tiêu đề và nội dung tương ứng:
+  - *Trúng tuyển*: `Chúc mừng! Bạn đã được tuyển thực tập tại IMS`
+  - *Trượt*: `Kết quả xét duyệt CV thực tập tại IMS`
+- Email được lưu vào bảng `system_emails` để có thể xem lại trong API `/api/system/emails`.
+
+## 📡 API MỚI
+
+| Method | Endpoint | Mô tả |
+| ------ | -------- | ----- |
+| `POST` | `/api/system/interns/:id/decision` | HR duyệt CV cho intern (body: `{ "decision": "selected" | "rejected" }`). Cập nhật trạng thái, gửi email, và lưu bản ghi email. |
+
+---
+
 
 ```text
 ├── data/                      # Thư mục lưu trữ database SQLite (ims.db)
