@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db, seedDatabase } from '../db';
 import nodemailer from 'nodemailer';
+import { authorize } from '../middleware/auth';
 
 // Nodemailer transporter using Gmail SMTP (credentials to be set in .env)
 const transporter = nodemailer.createTransport({
